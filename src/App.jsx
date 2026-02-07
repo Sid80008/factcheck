@@ -1,12 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import {
-  ShieldCheck, Search, AlertTriangle, CheckCircle2, XCircle, Scale,
-  BarChart3, RefreshCw, Globe, WifiOff, ArrowRight, Key, Unlock,
-  Link as LinkIcon, BookOpen, ExternalLink, Activity
+  ShieldCheck, WifiOff, Unlock, Key, BookOpen, ExternalLink
 } from 'lucide-react';
+import Hero from './components/Hero';
+import InputSection from './components/InputSection';
+import LiveStatus from './components/LiveStatus';
+import VerdictCard from './components/VerdictCard';
+import MediaBiasCard from './components/MediaBiasCard';
+import FactLog from './components/FactLog';
+import SourceDossier from './components/SourceDossier';
+import Footer from './components/Footer';
+import './App.css';
+import './animations.css';
 
-const MODEL_NAME = "gemini-1.5-flash"; // valid public model
-const ENV_KEY = import.meta.env.VITE_GEMINI_KEY || ""; // Vercel env support
+const MODEL_NAME = "gemini-1.5-flash";
+const ENV_KEY = import.meta.env.VITE_GEMINI_KEY || "";
 
 const NewspaperBackground = () => (
   <div className="fixed inset-0 pointer-events-none select-none z-0 opacity-[0.05]"></div>
@@ -17,7 +25,6 @@ export default function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [result, setResult] = useState(null);
   const [error, setError] = useState(null);
-  const [auditPhase, setAuditPhase] = useState('');
   const [customKey, setCustomKey] = useState('');
   const [showKeyInput, setShowKeyInput] = useState(false);
 
@@ -69,7 +76,6 @@ export default function App() {
     setIsAnalyzing(true);
     setError(null);
     setResult(null);
-    setAuditPhase('Analyzing...');
 
     const systemPrompt = `
 You are a non-partisan fact checker.
@@ -103,26 +109,26 @@ Return STRICT JSON:
       setError(e.message || "Network error");
     } finally {
       setIsAnalyzing(false);
-      setAuditPhase('');
     }
   };
 
   return (
-    <div className="min-h-screen bg-black text-white relative">
+    <div className="min-h-screen bg-black text-white relative flex flex-col items-center justify-center">
       <NewspaperBackground />
 
-      <nav className="p-4 flex justify-between border-b border-white/10">
+      {/* NAVBAR */}
+      <nav className="p-4 flex justify-between w-full max-w-5xl border-b border-white/10">
         <div className="flex items-center gap-2">
-          <ShieldCheck />
-          <span className="font-bold">VeriFact</span>
+          <ShieldCheck /> 
+          <span className="font-bold text-lg">VeriFact</span>
         </div>
 
         <div className="relative">
           <button
             onClick={() => setShowKeyInput(!showKeyInput)}
-            className="flex items-center gap-2 text-xs border px-3 py-1 rounded"
+            className="flex items-center gap-2 text-xs border px-3 py-1 rounded text-black bg-cyan-300"
           >
-            {customKey || ENV_KEY ? <Unlock size={14}/> : <Key size={14}/>}
+            {customKey || ENV_KEY ? <Unlock size={14}/> : <Key size={14}/>} 
             {customKey || ENV_KEY ? 'Key Active' : 'Add Key'}
           </button>
 
@@ -140,21 +146,18 @@ Return STRICT JSON:
         </div>
       </nav>
 
-      <main className="max-w-3xl mx-auto p-6">
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Enter topic or claim..."
-          className="w-full h-32 bg-zinc-900 p-4 rounded"
+      {/* MAIN APP */}
+      <main className="app">
+        <Hero />
+
+        <InputSection
+          query={input}
+          setQuery={setInput}
+          handleVerify={performAudit}
+          loading={isAnalyzing}
         />
 
-        <button
-          onClick={performAudit}
-          disabled={isAnalyzing}
-          className="mt-4 w-full bg-white text-black py-3 font-bold"
-        >
-          {isAnalyzing ? 'Analyzing...' : 'Verify'}
-        </button>
+        <LiveStatus loading={isAnalyzing} />
 
         {error && (
           <div className="mt-4 text-red-400 flex gap-2 items-center">
@@ -163,40 +166,23 @@ Return STRICT JSON:
         )}
 
         {result && (
-          <div className="mt-8 space-y-6">
-            <div className="border p-6 rounded">
-              <h2 className="text-2xl font-bold">{result.verdict}</h2>
-              <p className="text-gray-400">{result.reason}</p>
-            </div>
+          <>
+            <VerdictCard results={{
+              verdict: result.verdict,
+              confidence: result.confidence,
+              verifiable: result.verifiable_score,
+              trustScore: result.trust_score
+            }} />
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="border p-4 rounded">
-                <Scale size={16}/> {result.bias?.explanation}
-              </div>
-              <div className="border p-4 rounded">
-                <BarChart3 size={16}/> {result.tactics?.join(', ')}
-              </div>
-            </div>
+            <MediaBiasCard mediaBias={result.bias?.label} narrativeTags={result.tactics || []} />
 
-            <div className="border rounded">
-              {result.claims?.map((c,i)=>(
-                <div key={i} className="p-4 border-b">
-                  <b>{c.claim}</b> — {c.status}
-                  <p className="text-sm text-gray-400">{c.details}</p>
-                </div>
-              ))}
-            </div>
+            <FactLog facts={result.claims || []} />
 
-            <div className="border rounded p-4">
-              <BookOpen size={14}/> Sources
-              {result.sources?.map((s,i)=>(
-                <a key={i} href={s.url} target="_blank" className="block text-blue-400">
-                  <ExternalLink size={12}/> {s.name}
-                </a>
-              ))}
-            </div>
-          </div>
+            <SourceDossier sources={result.sources || []} />
+          </>
         )}
+
+        <Footer />
       </main>
     </div>
   );
